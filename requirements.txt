@@ -1,0 +1,5 @@
+pyexcel
+pyexcel-ods3
+pyexcel-xlsx
+python-dotenv
+requests
