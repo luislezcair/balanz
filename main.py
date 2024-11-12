@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import re
-from datetime import datetime
+from datetime import datetime, date
 import dotenv
 import pyexcel
 from brokers.balanz import Balanz
@@ -17,9 +17,9 @@ QUOTES_FILE = "quotes.json"
 ACCOUNT_OUTPUT_FILE = "my_account.json"
 
 
-def parse_date(quote_date):
+def parse_date(quote_date: str) -> date | None:
     if not quote_date:
-        return ""
+        return
 
     if re.match(r"\d{1,2}:\d{1,2}", quote_date):
         return datetime.now().date()
@@ -31,7 +31,7 @@ def parse_date(quote_date):
         return datetime.strptime(quote_date, "%Y-%m-%d %H:%M:%S.%f").date()
 
 
-def get_quotes(balanz: Balanz, quotes: list):
+def get_quotes(balanz: Balanz, quotes: list[str]):
     account = balanz.account_status()
 
     # print(f"Saving account status to file {ACCOUNT_OUTPUT_FILE}")
@@ -48,24 +48,24 @@ def get_quotes(balanz: Balanz, quotes: list):
         if ticker in account_tickers:
             quote = account[ticker]
             ticker_date = parse_date(quote["FechaUltimoOperado"])
-            price = buy_price = sell_price = quote["Precio"]
+            price = buy_price = sell_price = float(quote["Precio"])
             print(f"Found ticker {ticker} in account with current price {price}")
         else:
             print(f"Ticker {ticker} not found in account. I will have to search in Balanz")
-            quote = balanz.get_ticker_data(ticker)["Cotizacion"]
+            quote = balanz.get_ticker_data(ticker)
             ticker_date = parse_date(quote["UltimaOperacion"])
 
             # The ticker may not be found due to it not listed in BYMA
             if quote["SecurityID"] is None:
                 price = buy_price = sell_price = 1.0
             else:
-                price = quote["UltimoPrecio"]
-                buy_price = quote["PrecioCompra"]
-                sell_price = quote["PrecioVenta"]
+                price = float(quote["UltimoPrecio"])
+                buy_price = float(quote["PrecioCompra"])
+                sell_price = float(quote["PrecioVenta"])
 
             print(f"Found ticker {ticker} in Balanz with current price {price}")
 
-        data.append([ticker, ticker_date, price, buy_price, sell_price])
+        data.append([ticker, ticker_date or "", price, buy_price, sell_price])
 
     return data
 
@@ -98,6 +98,7 @@ def main(excel_file: str):
         quotes = json.loads(quotes_file.read())
 
     balanz = Balanz(BALANZ_USER, BALANZ_PASSWORD, BALANZ_ACCOUNT_ID)
+    balanz.login()
 
     book_dict = {
         "Titulos": get_quotes(balanz, quotes),
